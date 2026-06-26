@@ -21,14 +21,14 @@ export function SignalBreakdown({ signals }: SignalBreakdownProps) {
   }
 
   return (
-    <div className="flex gap-2 flex-wrap justify-center mt-4">
+    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-center gap-2 mt-4">
       {signals.map((signal) => (
         <div
           key={signal.label}
-          className={`px-3.5 py-1.5 rounded-full border text-xs font-semibold flex items-center gap-2 ${statusColors[signal.status || 'slate']}`}
+          className={`px-3.5 py-2 rounded-xl border text-xs font-semibold flex items-center gap-2 ${statusColors[signal.status || 'slate']}`}
         >
-          <span>{signal.icon}</span>
-          <span className="truncate">
+          <span className="shrink-0">{signal.icon}</span>
+          <span className="break-words min-w-0">
             {signal.label}: {signal.description}
           </span>
         </div>
