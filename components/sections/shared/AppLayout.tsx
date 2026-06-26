@@ -17,7 +17,6 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navItems = [
     { href: '/', label: 'Inicio', icon: Home },
     { href: '/mapa', label: 'Mapa', icon: Map },
-    { href: '/historia', label: 'Historia', icon: BarChart3 },
     { href: '/config', label: 'Configuración', icon: Settings },
   ]
 
