@@ -43,7 +43,7 @@ export function TopBar({ location: propLocation }: TopBarProps) {
 
   const displayLocation = loading
     ? 'Localizando...'
-    : distrito || propLocation || 'Lurigancho-Chosica, Lima'
+    : distrito || propLocation || '—'
 
   return (
     <div className="flex items-center justify-between bg-surface border-b border-border px-4 py-4 z-20 relative">

@@ -5,7 +5,7 @@ import { MapView } from '@/components/sections/map/MapView'
 
 export default function MapPage() {
   return (
-    <AppLayout>
+    <AppLayout fullScreen>
       <MapView />
     </AppLayout>
   )

@@ -1,29 +1,92 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Map, AlertCircle, RefreshCw, HelpCircle } from 'lucide-react'
-import { useUserLocation } from '@/hooks/useUserLocation'
+import { useLocation } from '@/context/LocationContext'
 import { useRiskScore } from '@/hooks/useRiskScore'
 import { RiskGauge } from './RiskGauge'
 import { QuickStats } from './QuickStats'
+import { SignalBreakdown } from './SignalBreakdown'
 import { RiskLevelBanner } from './RiskLevelBanner'
+import { HistoricalChart } from './HistoricalChart'
 import { EvacuationPlanCard } from '../recommendations/EvacuationPlanCard'
 
 export function RiskDashboardView() {
-  const { lat, lon, loading: locLoading, error: locError } = useUserLocation()
+  const { lat, lon, distrito, loading: locLoading, error: locError } = useLocation()
   const {
     score,
+    nivel,
+    desglose,
     lluviaMm,
     recommendations,
     loading: riskLoading,
     error: riskError,
   } = useRiskScore(lat, lon)
 
-  const [caudalHoy] = useState<number>(312)
+  const [caudalHoy, setCaudalHoy] = useState<number>(312)
+  const [historicalFlows, setHistoricalFlows] = useState([
+    { name: 'Hoy', value: 312, color: '#3b82f6', isDashed: false },
+    { name: 'Pico 2017', value: 489, color: '#ef4444', isDashed: true },
+    { name: 'Pico 2023', value: 401, color: '#f59e0b', isDashed: true },
+  ])
+  const [hydrologyLoading, setHydrologyLoading] = useState(true)
   const [showExplainer, setShowExplainer] = useState(false)
 
+  // Obtener datos de hidrología reales de Supabase
+  useEffect(() => {
+    async function fetchHydrology() {
+      try {
+        const res = await fetch('/api/hydrology')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.flows) {
+            setHistoricalFlows(data.flows)
+            const hoy = data.flows.find((f: any) => f.name === 'Hoy')?.value
+            if (hoy) setCaudalHoy(hoy)
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching hydrology for dashboard:', e)
+      } finally {
+        setHydrologyLoading(false)
+      }
+    }
+    fetchHydrology()
+  }, [])
+
   const isLoading = locLoading || riskLoading
+
+  // Formatear señales dinámicamente
+  const signals = desglose
+    ? [
+        {
+          icon: '🏔️',
+          label: 'Cercanía a cauce',
+          value: desglose.cauce,
+          status: (desglose.cauce > 25 ? 'red' : desglose.cauce > 10 ? 'amber' : 'slate') as 'red' | 'amber' | 'slate',
+          description: `+${desglose.cauce} pts${
+            desglose.cauceCercano
+              ? ` (${desglose.cauceCercano} a ${desglose.distanciaMetros}m)`
+              : ''
+          }`,
+        },
+        {
+          icon: '🌧️',
+          label: 'Lluvia 48h',
+          value: desglose.lluvia,
+          status: (desglose.lluvia > 25 ? 'red' : desglose.lluvia > 10 ? 'amber' : 'slate') as 'red' | 'amber' | 'slate',
+          description: `+${desglose.lluvia} pts (${lluviaMm?.toFixed(1) || 0} mm)`,
+        },
+        {
+          icon: '⚠️',
+          label: 'Alerta activa',
+          value: desglose.vulnerabilidad,
+          status: (desglose.vulnerabilidad > 0 ? 'red' : 'slate') as 'red' | 'amber' | 'slate',
+          description: `+${desglose.vulnerabilidad} pts`,
+        },
+      ]
+    : []
 
   // Estadísticas rápidas
   const quickStats = [
@@ -168,6 +231,7 @@ export function RiskDashboardView() {
             }`}
           >
             <RiskGauge score={score || 0} />
+            <SignalBreakdown signals={signals} />
 
             {/* Leyenda */}
             <div className="mt-4 pt-3.5 border-t border-border/50 flex justify-around text-[10px] font-bold text-text-muted">
@@ -222,6 +286,10 @@ export function RiskDashboardView() {
             </Link>
           </div>
 
+          <HistoricalChart
+            data={historicalFlows}
+            title="Comparativa de Caudal — Río Rímac"
+          />
         </div>
 
       </div>

@@ -1,11 +1,40 @@
 import { NextResponse } from "next/server"
 import { createNominatimGeocodingRepository } from "@/modules/location/infrastructure/NominatimGeocodingRepository"
 import { getDistrictName } from "@/modules/location/application/getDistrictName"
-import { createSupabaseAlertsRepository } from "@/modules/alerts/infrastructure/SupabaseAlertsRepository"
-import { getActiveAlerts } from "@/modules/alerts/application/getActiveAlerts"
 import { createLocalDangerZonesRepository } from "@/modules/risk/infrastructure/LocalDangerZonesRepository"
 import { createOpenMeteoRainfallRepository } from "@/modules/risk/infrastructure/OpenMeteoRainfallRepository"
 import { calculateRisk } from "@/modules/risk/application/calculateRisk"
+
+async function queryWfsSpatialAlert(lat: number, lon: number): Promise<boolean> {
+  const typeName = "g_prono_pp_24h:view_aviso24h"
+  const url = `https://idesep.senamhi.gob.pe/geoserver/g_prono_pp_24h/wfs?service=WFS&version=2.0.0&request=GetFeature&typeName=${typeName}&outputFormat=application/json&cql_filter=INTERSECTS(geom, POINT(${lon} ${lat}))`
+
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 4000)
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "YakuAlert-App" },
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) return false
+
+    const data = await response.json() as { features?: { properties: Record<string, string> }[] }
+
+    if (data.features && data.features.length > 0) {
+      const nivel = data.features[0].properties?.nivel ?? ""
+      return nivel.includes("3") || nivel.includes("4")
+    }
+
+    return false
+  } catch (err) {
+    console.error("Error al consultar WFS GeoServer del SENAMHI:", err)
+    return false
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -16,22 +45,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Latitud y Longitud deben ser números" }, { status: 400 })
     }
 
-    // 1. Obtener distrito y región
+    // 1. Obtener distrito
     const geocodingRepo = createNominatimGeocodingRepository()
     const districtName = await getDistrictName(geocodingRepo, lat, lon)
 
-    // 2. Obtener alertas activas de Supabase
-    const alertsRepo = createSupabaseAlertsRepository()
-    const activeAlerts = await getActiveAlerts(alertsRepo, districtName)
-    const alertaActiva = activeAlerts.some((a) => a.nivel === "naranja" || a.nivel === "rojo")
+    // 2. Consulta espacial en vivo al WFS de SENAMHI
+    const alertaActiva = await queryWfsSpatialAlert(lat, lon)
 
     // 3. Ejecutar cálculo de riesgo
     const dangerZonesRepo = createLocalDangerZonesRepository()
     const rainfallRepo = createOpenMeteoRainfallRepository()
 
     const result = await calculateRisk(dangerZonesRepo, rainfallRepo, lat, lon, alertaActiva)
-
-    // Obtener lluvia acumulada para el reporte
     const lluviaMm = await rainfallRepo.getRainfall48h(lat, lon)
 
     return NextResponse.json({
@@ -50,7 +75,6 @@ export async function POST(request: Request) {
     })
   } catch (error: any) {
     console.error("Error en API de riesgo:", error)
-    // Degradación elegante en caso de fallo crítico en el servidor
     return NextResponse.json({
       score: 50,
       nivel: "MODERADO",

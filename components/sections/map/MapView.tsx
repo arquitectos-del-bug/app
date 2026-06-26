@@ -4,7 +4,7 @@ import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
-import { useUserLocation } from '@/hooks/useUserLocation'
+import { useLocation } from '@/context/LocationContext'
 import { useRiskScore } from '@/hooks/useRiskScore'
 import { mapLayersData } from '@/lib/mock-data'
 
@@ -21,7 +21,7 @@ const LeafletMapContainer = dynamic(() => import('./LeafletMapContainer'), {
 })
 
 export function MapView() {
-  const { lat, lon, distrito, loading: locLoading } = useUserLocation()
+  const { lat, lon, distrito, loading: locLoading } = useLocation()
   const { score, nivel, loading: riskLoading } = useRiskScore(lat, lon)
 
   // Estados para las capas
@@ -40,14 +40,14 @@ export function MapView() {
   const isLoading = locLoading || riskLoading
 
   return (
-    <div className="relative w-full h-screen bg-slate-950 overflow-hidden pb-24">
+    <div className="relative w-full h-[calc(100vh-56px)] bg-slate-950 overflow-hidden">
       {/* Mapa dinámico */}
       <div className="w-full h-full relative z-0">
         {!locLoading && lat !== null && lon !== null ? (
           <LeafletMapContainer
             userLat={lat}
             userLon={lon}
-            userDistrito={distrito}
+            userDistrito={distrito ?? ''}
             score={score || 50}
             nivel={nivel || 'MODERADO'}
             layers={layers}
