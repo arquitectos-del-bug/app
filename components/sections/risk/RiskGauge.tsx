@@ -8,19 +8,27 @@ interface RiskGaugeProps {
 }
 
 export function RiskGauge({ score, maxScore = 100 }: RiskGaugeProps) {
-  // Calculate stroke dash for the arc (270-degree arc)
-  const circumference = 2 * Math.PI * 45 // radius = 45
+  // Calculate stroke dash for the arc (270-degree arc centered at 80,80 with radius 60)
+  const radius = 60
+  const circumference = 2 * Math.PI * radius
   const arcLength = (270 / 360) * circumference
   const offset = arcLength * (1 - score / maxScore)
 
-  // Determine color based on score
-  const getColor = (s: number) => {
-    if (s < 34) return '#22c55e' // green
-    if (s < 67) return '#f59e0b' // amber
-    return '#ef4444' // red
+  // Determine dynamic color variable based on score
+  const color = useMemo(() => {
+    if (score < 34) return 'var(--risk-low)'
+    if (score < 67) return 'var(--risk-moderate)'
+    return 'var(--risk-high)'
+  }, [score])
+
+  // Get raw rgba color for dynamic filter glow
+  const getGlowColor = (s: number) => {
+    if (s < 34) return 'rgba(5, 255, 176, 0.25)'   // neon mint/green
+    if (s < 67) return 'rgba(255, 159, 28, 0.25)'  // neon amber
+    return 'rgba(255, 0, 85, 0.3)'                 // neon red
   }
 
-  const color = getColor(score)
+  const glowColor = getGlowColor(score)
 
   // Level label
   const getLevel = (s: number) => {
@@ -30,7 +38,7 @@ export function RiskGauge({ score, maxScore = 100 }: RiskGaugeProps) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center py-8">
+    <div className="flex flex-col items-center justify-center py-6">
       {/* SVG Circular Gauge */}
       <svg
         width="200"
@@ -40,11 +48,12 @@ export function RiskGauge({ score, maxScore = 100 }: RiskGaugeProps) {
       >
         {/* Background arc (gray) */}
         <path
-          d="M 80 20 A 60 60 0 0 1 138 120"
+          d="M 37.57 122.43 A 60 60 0 1 1 122.43 122.43"
           fill="none"
-          stroke="#475569"
+          stroke="var(--border)"
           strokeWidth="8"
           strokeLinecap="round"
+          opacity="0.5"
         />
 
         {/* Animated progress arc */}
@@ -66,7 +75,7 @@ export function RiskGauge({ score, maxScore = 100 }: RiskGaugeProps) {
         </defs>
 
         <path
-          d="M 80 20 A 60 60 0 0 1 138 120"
+          d="M 37.57 122.43 A 60 60 0 1 1 122.43 122.43"
           fill="none"
           stroke={color}
           strokeWidth="8"
@@ -74,15 +83,17 @@ export function RiskGauge({ score, maxScore = 100 }: RiskGaugeProps) {
           strokeDasharray={arcLength}
           strokeDashoffset={arcLength}
           className="gauge-arc"
-          filter="drop-shadow(0 0 8px rgba(239, 68, 68, 0.3))"
+          style={{
+            filter: `drop-shadow(0 0 8px ${glowColor})`,
+          }}
         />
       </svg>
 
       {/* Score Display */}
-      <div className="flex flex-col items-center gap-1 mt-4">
-        <div className="text-5xl font-bold text-primary">{score}</div>
+      <div className="flex flex-col items-center gap-1 mt-2">
+        <div className="text-5xl font-extrabold font-heading text-text-primary">{score}%</div>
         <div
-          className="text-lg font-semibold"
+          className="text-xs font-black tracking-widest uppercase font-heading"
           style={{ color }}
         >
           {getLevel(score)}

@@ -1,0 +1,69 @@
+[
+  {
+    "id": "quebrada-quirio",
+    "nombre": "Quebrada Quirio",
+    "distrito": "Lurigancho-Chosica",
+    "rio": "Rímac",
+    "cuenca": "Rímac",
+    "peligrosidad": 0.95,
+    "coords": [
+      { "lat": -11.9321, "lon": -76.6891 },
+      { "lat": -11.9345, "lon": -76.6912 },
+      { "lat": -11.9378, "lon": -76.6934 }
+    ]
+  },
+  {
+    "id": "quebrada-carossio",
+    "nombre": "Quebrada Carossio",
+    "distrito": "Lurigancho-Chosica",
+    "rio": "Rímac",
+    "cuenca": "Rímac",
+    "peligrosidad": 0.90,
+    "coords": [
+      { "lat": -11.9298, "lon": -76.6823 },
+      { "lat": -11.9312, "lon": -76.6845 },
+      { "lat": -11.9330, "lon": -76.6867 }
+    ]
+  },
+  {
+    "id": "quebrada-pedregal",
+    "nombre": "Quebrada Pedregal",
+    "distrito": "Lurigancho-Chosica",
+    "rio": "Rímac",
+    "cuenca": "Rímac",
+    "peligrosidad": 0.85,
+    "coords": [
+      { "lat": -11.9401, "lon": -76.6754 },
+      { "lat": -11.9423, "lon": -76.6778 },
+      { "lat": -11.9445, "lon": -76.6801 }
+    ]
+  },
+  {
+    "id": "cauce-rimac-chosica",
+    "nombre": "Cauce principal Rímac — tramo Chosica",
+    "distrito": "Lurigancho-Chosica",
+    "rio": "Rímac",
+    "cuenca": "Rímac",
+    "peligrosidad": 1.0,
+    "coords": [
+      { "lat": -11.9340, "lon": -76.7020 },
+      { "lat": -11.9335, "lon": -76.6950 },
+      { "lat": -11.9330, "lon": -76.6880 },
+      { "lat": -11.9325, "lon": -76.6810 },
+      { "lat": -11.9320, "lon": -76.6740 }
+    ]
+  },
+  {
+    "id": "quebrada-santa-eulalia",
+    "nombre": "Quebrada Santa Eulalia",
+    "distrito": "Santa Eulalia",
+    "rio": "Santa Eulalia",
+    "cuenca": "Rímac",
+    "peligrosidad": 0.80,
+    "coords": [
+      { "lat": -11.9156, "lon": -76.6234 },
+      { "lat": -11.9178, "lon": -76.6256 },
+      { "lat": -11.9201, "lon": -76.6278 }
+    ]
+  }
+]
