@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { Droplet, MapPin, Sun, Moon } from 'lucide-react'
-import { useUserLocation } from '@/hooks/useUserLocation'
+import { useLocation } from '@/context/LocationContext'
 
 interface TopBarProps {
   location?: string
 }
 
 export function TopBar({ location: propLocation }: TopBarProps) {
-  const { distrito, loading } = useUserLocation()
+  const { distrito, loading } = useLocation()
   const [theme, setTheme] = useState<'light' | 'dark'>('dark')
 
   // Cargar inicialización del tema

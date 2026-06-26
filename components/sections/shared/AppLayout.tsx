@@ -3,9 +3,10 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Map, BarChart3, Settings, Droplet, Radio } from 'lucide-react'
+import { Home, Map, Settings, Droplet, Radio } from 'lucide-react'
 import { TopBar } from './TopBar'
 import { BottomNav } from './BottomNav'
+import { LocationProvider } from '@/context/LocationContext'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -21,6 +22,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   ]
 
   return (
+    <LocationProvider>
     <div className="flex min-h-screen bg-background text-foreground transition-colors duration-300">
       
       {/* 1. SIDEBAR NAV - DESKTOP ONLY */}
@@ -92,5 +94,6 @@ export function AppLayout({ children }: AppLayoutProps) {
         <BottomNav />
       </div>
     </div>
+    </LocationProvider>
   )
 }
