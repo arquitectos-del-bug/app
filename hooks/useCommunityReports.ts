@@ -8,6 +8,7 @@ interface UseCommunityReportsResult {
   communityAlert: CommunityAlert | null
   loading: boolean
   addReport: (tipo: ReportType, descripcion: string, distrito: string) => Promise<void>
+  seedDemo: () => Promise<void>
 }
 
 export function useCommunityReports(lat: number | null, lon: number | null): UseCommunityReportsResult {
@@ -53,5 +54,15 @@ export function useCommunityReports(lat: number | null, lon: number | null): Use
     [lat, lon, fetchReports]
   )
 
-  return { reports, communityAlert, loading, addReport }
+  const seedDemo = useCallback(async () => {
+    if (!lat || !lon) return
+    await fetch('/api/reports/seed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lon }),
+    })
+    await fetchReports()
+  }, [lat, lon, fetchReports])
+
+  return { reports, communityAlert, loading, addReport, seedDemo }
 }

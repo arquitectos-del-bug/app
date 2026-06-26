@@ -23,7 +23,7 @@ export function RiskDashboardView() {
     recommendations,
     loading: riskLoading,
   } = useRiskScore(lat, lon)
-  const { communityAlert, addReport } = useCommunityReports(lat, lon)
+  const { communityAlert, addReport, seedDemo } = useCommunityReports(lat, lon)
 
   const [showExplainer, setShowExplainer] = useState(false)
 
@@ -306,7 +306,7 @@ export function RiskDashboardView() {
         <EvacuationPlanCard steps={recommendations} />
       </div>
 
-      <ReportButton onSubmit={addReport} distrito={distrito ?? ''} />
+      <ReportButton onSubmit={addReport} onSeedDemo={seedDemo} distrito={distrito ?? ''} />
 
     </div>
   )

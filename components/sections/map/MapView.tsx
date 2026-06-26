@@ -29,7 +29,7 @@ const LeafletMapContainer = dynamic(() => import('./LeafletMapContainer'), {
 export function MapView() {
   const { lat, lon, distrito, loading: locLoading } = useLocation()
   const { score, nivel, loading: riskLoading } = useRiskScore(lat, lon)
-  const { reports, communityAlert, addReport } = useCommunityReports(lat, lon)
+  const { reports, communityAlert, addReport, seedDemo } = useCommunityReports(lat, lon)
 
   // Estados para las capas
   const [layers, setLayers] = useState({
@@ -126,7 +126,7 @@ export function MapView() {
       )}
 
       {/* Report button */}
-      <ReportButton onSubmit={addReport} distrito={distrito ?? ''} />
+      <ReportButton onSubmit={addReport} onSeedDemo={seedDemo} distrito={distrito ?? ''} />
 
       {/* Tarjeta flotante inferior - Información de Riesgo en Vivo */}
       <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-10 bg-surface border border-border rounded-2xl p-4 w-[calc(100%-2rem)] max-w-sm shadow-2xl">
