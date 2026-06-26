@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap, GeoJS
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import dangerZonesData from '@/lib/danger-zones.json'
+import type { CommunityReport } from '@/types/community'
 
 // Ajustador dinámico de mapa
 interface MapResizerProps {
@@ -34,6 +35,7 @@ interface LeafletMapContainerProps {
     senamhiStations: boolean
     historicRiverbeds: boolean
   }
+  reports?: CommunityReport[]
 }
 
 export default function LeafletMapContainer({
@@ -43,6 +45,7 @@ export default function LeafletMapContainer({
   score,
   nivel,
   layers,
+  reports = [],
 }: LeafletMapContainerProps) {
   const mapRef = useRef<L.Map | null>(null)
   const [geoJsonData, setGeoJsonData] = useState<any>(null)
@@ -177,6 +180,28 @@ export default function LeafletMapContainer({
     iconAnchor: [16, 16],
   })
 
+  const reportIcon = (tipo: string) => {
+    const cfg: Record<string, { emoji: string; bg: string; border: string }> = {
+      huaico:   { emoji: '🌊', bg: 'rgba(239,68,68,0.25)',  border: '#ef4444' },
+      desborde: { emoji: '💧', bg: 'rgba(59,130,246,0.25)', border: '#3b82f6' },
+      bloqueo:  { emoji: '🚧', bg: 'rgba(245,158,11,0.25)', border: '#f59e0b' },
+    }
+    const { emoji, bg, border } = cfg[tipo] ?? cfg.huaico
+    return L.divIcon({
+      html: `<div style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:${bg};border:2px solid ${border};font-size:14px;box-shadow:0 0 8px ${border}66">${emoji}</div>`,
+      className: '',
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+    })
+  }
+
+  function timeAgo(date: Date | string): string {
+    const diff = Math.floor((Date.now() - new Date(date).getTime()) / 60000)
+    if (diff < 1) return 'ahora mismo'
+    if (diff < 60) return `hace ${diff} min`
+    return `hace ${Math.floor(diff / 60)}h`
+  }
+
   const userCenter: [number, number] = [userLat, userLon]
 
   return (
@@ -277,6 +302,24 @@ export default function LeafletMapContainer({
               </div>
             )
           })}
+        {/* Community reports */}
+        {reports.map((r, idx) => (
+          <Marker
+            key={idx}
+            position={[r.lat, r.lon]}
+            icon={reportIcon(r.tipo)}
+          >
+            <Popup className="custom-popup">
+              <div className="p-1.5">
+                <h4 className="font-bold text-sm capitalize">{r.tipo}</h4>
+                {r.descripcion && <p className="text-xs text-text-muted mt-1">{r.descripcion}</p>}
+                <p className="text-[10px] text-text-muted mt-1">📍 {r.distrito}</p>
+                <p className="text-[10px] text-text-muted">{timeAgo(r.created_at)}</p>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
       </MapContainer>
     </div>
   )
