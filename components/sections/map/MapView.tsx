@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { Search } from 'lucide-react'
 import { useLocation } from '@/context/LocationContext'
 import { useRiskScore } from '@/hooks/useRiskScore'
+import { useCommunityReports } from '@/hooks/useCommunityReports'
+import { ReportButton } from '@/components/sections/community/ReportButton'
 const mapLayersData = [
   { id: 'alerts-24h', icon: '🔴', label: 'Alertas 24h' },
   { id: 'senamhi-stations', icon: '🟠', label: 'Estaciones SENAMHI' },
@@ -27,6 +29,7 @@ const LeafletMapContainer = dynamic(() => import('./LeafletMapContainer'), {
 export function MapView() {
   const { lat, lon, distrito, loading: locLoading } = useLocation()
   const { score, nivel, loading: riskLoading } = useRiskScore(lat, lon)
+  const { reports, communityAlert, addReport } = useCommunityReports(lat, lon)
 
   // Estados para las capas
   const [layers, setLayers] = useState({
@@ -55,6 +58,7 @@ export function MapView() {
             score={score || 50}
             nivel={nivel || 'MODERADO'}
             layers={layers}
+            reports={reports}
           />
         ) : (
           <div className="w-full h-full bg-slate-950 grid-bg scanline flex flex-col items-center justify-center relative">
@@ -107,6 +111,22 @@ export function MapView() {
           })}
         </div>
       </div>
+
+      {/* Community alert banner */}
+      {communityAlert && (
+        <div className="absolute top-16 left-4 right-4 z-20 bg-red-900/90 border border-red-500 rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-xl backdrop-blur-sm animate-in fade-in slide-in-from-top-2">
+          <span className="text-xl animate-pulse">🚨</span>
+          <div>
+            <p className="text-xs font-black text-red-300 uppercase tracking-wider">Alerta Comunitaria</p>
+            <p className="text-xs text-red-200">
+              {communityAlert.count} reportes en {communityAlert.radio_km} km · {communityAlert.tipos.join(' · ')}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Report button */}
+      <ReportButton onSubmit={addReport} distrito={distrito ?? ''} />
 
       {/* Tarjeta flotante inferior - Información de Riesgo en Vivo */}
       <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-10 bg-surface border border-border rounded-2xl p-4 w-[calc(100%-2rem)] max-w-sm shadow-2xl">

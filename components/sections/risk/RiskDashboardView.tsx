@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { Map, RefreshCw, HelpCircle } from 'lucide-react'
 import { useLocation } from '@/context/LocationContext'
 import { useRiskScore } from '@/hooks/useRiskScore'
+import { useCommunityReports } from '@/hooks/useCommunityReports'
+import { ReportButton } from '@/components/sections/community/ReportButton'
 import { RiskGauge } from './RiskGauge'
 import { QuickStats } from './QuickStats'
 import { SignalBreakdown } from './SignalBreakdown'
@@ -12,7 +14,7 @@ import { RiskLevelBanner } from './RiskLevelBanner'
 import { EvacuationPlanCard } from '../recommendations/EvacuationPlanCard'
 
 export function RiskDashboardView() {
-  const { lat, lon, loading: locLoading, isMocked, resetLocation } = useLocation()
+  const { lat, lon, loading: locLoading, isMocked, resetLocation, distrito } = useLocation()
   const {
     score,
     nivel,
@@ -21,6 +23,7 @@ export function RiskDashboardView() {
     recommendations,
     loading: riskLoading,
   } = useRiskScore(lat, lon)
+  const { communityAlert, addReport } = useCommunityReports(lat, lon)
 
   const [showExplainer, setShowExplainer] = useState(false)
 
@@ -148,6 +151,23 @@ export function RiskDashboardView() {
           >
             Volver a GPS Real
           </button>
+        </div>
+      )}
+
+      {/* Community alert banner */}
+      {communityAlert && (
+        <div className="bg-red-900/30 border border-red-500/60 rounded-2xl p-4 flex items-start gap-3 shadow-lg animate-in fade-in slide-in-from-top-2">
+          <span className="text-2xl mt-0.5 animate-pulse">🚨</span>
+          <div className="flex-1">
+            <p className="text-sm font-black text-red-400 uppercase tracking-wider">Alerta Comunitaria Activa</p>
+            <p className="text-xs text-red-200 mt-0.5">
+              {communityAlert.count} reportes ciudadanos en los últimos {communityAlert.radio_km} km ·{' '}
+              {communityAlert.tipos.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-1">
+              La comunidad ha confirmado actividad de emergencia en tu zona.
+            </p>
+          </div>
         </div>
       )}
 
@@ -285,6 +305,8 @@ export function RiskDashboardView() {
       <div className="w-full">
         <EvacuationPlanCard steps={recommendations} />
       </div>
+
+      <ReportButton onSubmit={addReport} distrito={distrito ?? ''} />
 
     </div>
   )
