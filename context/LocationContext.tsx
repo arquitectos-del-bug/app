@@ -8,9 +8,13 @@ export interface UserLocation {
   distrito: string | null
   loading: boolean
   error: string | null
+  isMocked: boolean
+  setSimulatedLocation: (lat: number, lon: number, distrito: string | null) => void
+  resetLocation: () => void
 }
 
 const STORAGE_KEY = 'yaku_location'
+const MOCK_STORAGE_KEY = 'yaku_mock_location'
 const COORD_THRESHOLD_DEG = 0.003
 
 function coordsChanged(lat1: number, lon1: number, lat2: number, lon2: number): boolean {
@@ -23,42 +27,82 @@ const LocationContext = createContext<UserLocation>({
   distrito: null,
   loading: true,
   error: null,
+  isMocked: false,
+  setSimulatedLocation: () => {},
+  resetLocation: () => {},
 })
 
 export function LocationProvider({ children }: { children: ReactNode }) {
-  const [location, setLocation] = useState<UserLocation>({
+  const [location, setLocation] = useState<{
+    lat: number | null
+    lon: number | null
+    distrito: string | null
+    loading: boolean
+    error: string | null
+    isMocked: boolean
+  }>({
     lat: null,
     lon: null,
     distrito: null,
     loading: true,
     error: null,
+    isMocked: false,
   })
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
+  const [realLocation, setRealLocation] = useState<{
+    lat: number | null
+    lon: number | null
+    distrito: string | null
+    error: string | null
+  }>({
+    lat: null,
+    lon: null,
+    distrito: null,
+    error: null,
+  })
 
-    // Intentar restaurar ubicación cacheada
-    const saved = localStorage.getItem(STORAGE_KEY)
-    let cachedLat: number | null = null
-    let cachedLon: number | null = null
-    let cachedDistrito: string | null = null
-
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (parsed.lat && parsed.lon) {
-          cachedLat = parsed.lat
-          cachedLon = parsed.lon
-          cachedDistrito = parsed.distrito || null
-          setLocation({ lat: cachedLat, lon: cachedLon, distrito: cachedDistrito, loading: false, error: null })
-        }
-      } catch (e) {
-        console.error('Error parseando yaku_location:', e)
-      }
+  const setSimulatedLocation = (lat: number, lon: number, distrito: string | null) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify({ lat, lon, distrito }))
     }
+    setLocation({
+      lat,
+      lon,
+      distrito,
+      loading: false,
+      error: null,
+      isMocked: true,
+    })
+  }
 
+  const resetLocation = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(MOCK_STORAGE_KEY)
+    }
+    if (realLocation.lat !== null) {
+      setLocation({
+        lat: realLocation.lat,
+        lon: realLocation.lon,
+        distrito: realLocation.distrito,
+        loading: false,
+        error: realLocation.error,
+        isMocked: false,
+      })
+    } else {
+      setLocation((prev) => ({ ...prev, loading: true, isMocked: false }))
+      triggerGeolocation()
+    }
+  }
+
+  const triggerGeolocation = () => {
     if (!navigator.geolocation) {
-      setLocation((prev) => ({ ...prev, loading: false, error: 'Geolocalización no soportada' }))
+      const err = 'Geolocalización no soportada'
+      setRealLocation((prev) => ({ ...prev, error: err }))
+      
+      const mockSaved = localStorage.getItem(MOCK_STORAGE_KEY)
+      if (!mockSaved) {
+        setLocation((prev) => ({ ...prev, loading: false, error: err }))
+      }
       return
     }
 
@@ -66,8 +110,33 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       async (position) => {
         const { latitude: lat, longitude: lon } = position.coords
 
+        // Intentar restaurar ubicación cacheada
+        const saved = localStorage.getItem(STORAGE_KEY)
+        let cachedLat: number | null = null
+        let cachedLon: number | null = null
+        let cachedDistrito: string | null = null
+
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved)
+            if (parsed.lat && parsed.lon) {
+              cachedLat = parsed.lat
+              cachedLon = parsed.lon
+              cachedDistrito = parsed.distrito || null
+            }
+          } catch (e) {
+            console.error('Error parseando yaku_location:', e)
+          }
+        }
+
         if (cachedLat && cachedLon && !coordsChanged(lat, lon, cachedLat, cachedLon)) {
-          setLocation({ lat, lon, distrito: cachedDistrito, loading: false, error: null })
+          const real = { lat, lon, distrito: cachedDistrito, error: null }
+          setRealLocation(real)
+          
+          const mockSaved = localStorage.getItem(MOCK_STORAGE_KEY)
+          if (!mockSaved) {
+            setLocation({ ...real, loading: false, isMocked: false })
+          }
           return
         }
 
@@ -97,26 +166,82 @@ export function LocationProvider({ children }: { children: ReactNode }) {
           }
 
           localStorage.setItem(STORAGE_KEY, JSON.stringify({ lat, lon, distrito }))
-          setLocation({ lat, lon, distrito, loading: false, error: null })
+          const real = { lat, lon, distrito, error: null }
+          setRealLocation(real)
+
+          const mockSaved = localStorage.getItem(MOCK_STORAGE_KEY)
+          if (!mockSaved) {
+            setLocation({ ...real, loading: false, isMocked: false })
+          }
         } catch {
           localStorage.setItem(STORAGE_KEY, JSON.stringify({ lat, lon, distrito: null }))
-          setLocation({ lat, lon, distrito: null, loading: false, error: null })
+          const real = { lat, lon, distrito: null, error: null }
+          setRealLocation(real)
+
+          const mockSaved = localStorage.getItem(MOCK_STORAGE_KEY)
+          if (!mockSaved) {
+            setLocation({ ...real, loading: false, isMocked: false })
+          }
         }
       },
       (error) => {
-        setLocation((prev) => ({
-          ...prev,
-          loading: false,
-          error: `Permiso de ubicación denegado: ${error.message}`,
-        }))
+        const errMsg = `Permiso de ubicación denegado: ${error.message}`
+        const real = { lat: null, lon: null, distrito: null, error: errMsg }
+        setRealLocation(real)
+
+        const mockSaved = localStorage.getItem(MOCK_STORAGE_KEY)
+        if (!mockSaved) {
+          setLocation({
+            ...real,
+            loading: false,
+            isMocked: false,
+          })
+        }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     )
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    // Primero revisar si ya hay una ubicación mockeada en caché
+    const mockSaved = localStorage.getItem(MOCK_STORAGE_KEY)
+    if (mockSaved) {
+      try {
+        const parsed = JSON.parse(mockSaved)
+        if (parsed.lat && parsed.lon) {
+          setLocation({
+            lat: parsed.lat,
+            lon: parsed.lon,
+            distrito: parsed.distrito || null,
+            loading: false,
+            error: null,
+            isMocked: true,
+          })
+        }
+      } catch (e) {
+        console.error('Error parseando mock location cacheada:', e)
+      }
+    }
+
+    triggerGeolocation()
   }, [])
 
-  return <LocationContext.Provider value={location}>{children}</LocationContext.Provider>
+  return (
+    <LocationContext.Provider
+      value={{
+        ...location,
+        setSimulatedLocation,
+        resetLocation,
+      }}
+    >
+      {children}
+    </LocationContext.Provider>
+  )
 }
 
 export function useLocation(): UserLocation {
   return useContext(LocationContext)
 }
+

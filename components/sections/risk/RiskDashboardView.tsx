@@ -12,7 +12,7 @@ import { RiskLevelBanner } from './RiskLevelBanner'
 import { EvacuationPlanCard } from '../recommendations/EvacuationPlanCard'
 
 export function RiskDashboardView() {
-  const { lat, lon, loading: locLoading } = useLocation()
+  const { lat, lon, loading: locLoading, isMocked, resetLocation } = useLocation()
   const {
     score,
     nivel,
@@ -128,6 +128,28 @@ export function RiskDashboardView() {
 
   return (
     <div className="w-full space-y-6">
+
+      {/* Simulator Mode Active Banner */}
+      {isMocked && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2.5 text-left">
+            <span className="flex h-3.5 w-3.5 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-amber-500"></span>
+            </span>
+            <div>
+              <p className="text-xs font-bold text-amber-500 dark:text-amber-400">Modo Simulador de Ubicación Activo</p>
+              <p className="text-[10px] text-text-muted">Visualizando datos simulados y recomendaciones locales en tiempo real para esta zona de prueba.</p>
+            </div>
+          </div>
+          <button
+            onClick={resetLocation}
+            className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white dark:text-slate-950 font-bold text-xs rounded-xl transition-all shadow-sm shrink-0"
+          >
+            Volver a GPS Real
+          </button>
+        </div>
+      )}
 
       {/* Cabecera del Panel */}
       <div className="flex justify-between items-center">
