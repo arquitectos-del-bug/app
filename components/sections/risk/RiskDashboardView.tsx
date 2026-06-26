@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { Map, AlertCircle, RefreshCw, HelpCircle } from 'lucide-react'
 import { useUserLocation } from '@/hooks/useUserLocation'
@@ -8,7 +8,6 @@ import { useRiskScore } from '@/hooks/useRiskScore'
 import { RiskGauge } from './RiskGauge'
 import { QuickStats } from './QuickStats'
 import { RiskLevelBanner } from './RiskLevelBanner'
-import { HistoricalChart } from './HistoricalChart'
 import { EvacuationPlanCard } from '../recommendations/EvacuationPlanCard'
 
 export function RiskDashboardView() {
@@ -21,33 +20,8 @@ export function RiskDashboardView() {
     error: riskError,
   } = useRiskScore(lat, lon)
 
-  const [caudalHoy, setCaudalHoy] = useState<number>(312)
-  const [historicalFlows, setHistoricalFlows] = useState([
-    { name: 'Hoy', value: 312, color: '#3b82f6', isDashed: false },
-    { name: 'Pico 2017', value: 489, color: '#ef4444', isDashed: true },
-    { name: 'Pico 2023', value: 401, color: '#f59e0b', isDashed: true },
-  ])
+  const [caudalHoy] = useState<number>(312)
   const [showExplainer, setShowExplainer] = useState(false)
-
-  // Obtener datos de hidrología reales de Supabase
-  useEffect(() => {
-    async function fetchHydrology() {
-      try {
-        const res = await fetch('/api/hydrology')
-        if (res.ok) {
-          const data = await res.json()
-          if (data.flows) {
-            setHistoricalFlows(data.flows)
-            const hoy = data.flows.find((f: any) => f.name === 'Hoy')?.value
-            if (hoy) setCaudalHoy(hoy)
-          }
-        }
-      } catch (e) {
-        console.error('Error fetching hydrology for dashboard:', e)
-      }
-    }
-    fetchHydrology()
-  }, [])
 
   const isLoading = locLoading || riskLoading
 
@@ -248,10 +222,6 @@ export function RiskDashboardView() {
             </Link>
           </div>
 
-          <HistoricalChart
-            data={historicalFlows}
-            title="Comparativa de Caudal — Río Rímac"
-          />
         </div>
 
       </div>
