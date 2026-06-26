@@ -6,7 +6,11 @@ import Link from 'next/link'
 import { Search } from 'lucide-react'
 import { useLocation } from '@/context/LocationContext'
 import { useRiskScore } from '@/hooks/useRiskScore'
-import { mapLayersData } from '@/lib/mock-data'
+const mapLayersData = [
+  { id: 'alerts-24h', icon: '🔴', label: 'Alertas 24h' },
+  { id: 'senamhi-stations', icon: '🟠', label: 'Estaciones SENAMHI' },
+  { id: 'historic-riverbeds', icon: '🟣', label: 'Cauces históricos' },
+]
 
 const LeafletMapContainer = dynamic(() => import('./LeafletMapContainer'), {
   ssr: false,

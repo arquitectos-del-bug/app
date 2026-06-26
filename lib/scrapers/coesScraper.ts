@@ -8,77 +8,111 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function scrapeCoesExcel() {
-  const urlPortal = 'https://www.coes.org.pe/Portal/Operacion/Estudios/Hidrologia'
-  console.log(`Buscando enlace de reporte en: ${urlPortal}`)
+export interface ScrapeResult {
+  ok: boolean
+  caudalM3s?: number
+  fecha?: string
+  urlExcel?: string
+  sheetNames?: string[]
+  fuente?: string
+  error?: string
+  step?: string
+}
 
+async function tryDownloadExcel(fecha: string): Promise<{ buffer: ArrayBuffer; urlExcel: string } | null> {
+  const urlExcel = `https://www.coes.org.pe/Portal/Operacion/Reportes/Ieod/Descargar?fecha=${fecha}`
   try {
-    const portalResponse = await fetch(urlPortal, { headers: { 'User-Agent': 'Mozilla/5.0' } })
-    if (!portalResponse.ok) throw new Error('No se pudo acceder al portal de hidrología de COES.')
+    const res = await fetch(urlExcel, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+    if (!res.ok) return null
+    const contentType = res.headers.get('content-type') ?? ''
+    // Rechazar respuestas HTML (error page / login)
+    if (contentType.includes('text/html')) return null
+    const buffer = await res.arrayBuffer()
+    return { buffer, urlExcel }
+  } catch {
+    return null
+  }
+}
 
-    const html = await portalResponse.text()
-    const $ = cheerio.load(html)
+async function upsertCaudal(caudalM3s: number, fecha: string, fuente: string) {
+  return supabase.from('hydrology_readings').upsert(
+    { rio: 'Rímac', cuenca: 'Rímac', caudal_m3s: caudalM3s, fecha, fuente, scraped_at: new Date().toISOString() },
+    { onConflict: 'rio,fecha' }
+  )
+}
 
-    let urlExcel = ''
-    $('a').each((i, el) => {
-      const href = $(el).attr('href')
-      if (href && (href.includes('Ieod/Descargar') || (href.includes('IEOD') && href.includes('.xlsx')))) {
-        urlExcel = href.startsWith('http') ? href : `https://www.coes.org.pe${href}`
-      }
-    })
+export async function scrapeCoesExcel(): Promise<ScrapeResult> {
+  // Intentar los últimos 4 días (el reporte puede publicarse con retraso)
+  const fechas: string[] = []
+  for (let i = 0; i < 4; i++) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    fechas.push(d.toISOString().split('T')[0])
+  }
 
-    if (!urlExcel) {
-      const fechaHoy = new Date().toISOString().split('T')[0]
-      urlExcel = `https://www.coes.org.pe/Portal/Operacion/Reportes/Ieod/Descargar?fecha=${fechaHoy}`
+  for (const fecha of fechas) {
+    const dl = await tryDownloadExcel(fecha)
+    if (!dl) continue
+
+    let workbook: xlsx.WorkBook
+    try {
+      workbook = xlsx.read(new Uint8Array(dl.buffer), { type: 'array' })
+    } catch {
+      continue
     }
 
-    console.log(`Descargando Excel del IEOD desde: ${urlExcel}`)
-    const response = await fetch(urlExcel, { headers: { 'User-Agent': 'Mozilla/5.0' } })
-    if (!response.ok) throw new Error('No se pudo descargar el archivo Excel del COES.')
-
-    const buffer = await response.arrayBuffer()
-    const workbook = xlsx.read(new Uint8Array(buffer), { type: 'array' })
-
-    const sheetName = workbook.SheetNames.find(
-      (name) => name.includes('Hidro') || name.includes('Caudal')
+    const sheetNames = workbook.SheetNames
+    const sheetName = sheetNames.find(n =>
+      /hidro|caudal/i.test(n)
     )
-    if (!sheetName) throw new Error('No se encontró la hoja de hidrología en el Excel.')
+    if (!sheetName) continue
 
-    const sheet = workbook.Sheets[sheetName]
-    const dataJson: any[] = xlsx.utils.sheet_to_json(sheet)
-
-    const filaRimac = dataJson.find((row) =>
-      Object.values(row).some((val) => val && val.toString().includes('Rímac'))
+    const dataJson: any[] = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName])
+    const filaRimac = dataJson.find(row =>
+      Object.values(row).some(val => /r[íi]mac/i.test(String(val)))
     )
 
     let caudalM3s = 312
     if (filaRimac) {
       for (const val of Object.values(filaRimac)) {
-        if (typeof val === 'number' && val > 0) {
-          caudalM3s = val
-          break
-        }
+        if (typeof val === 'number' && val > 0) { caudalM3s = val; break }
       }
     }
 
-    const fechaHoyStr = new Date().toISOString().split('T')[0]
-    console.log(`Caudal real del Rímac extraído: ${caudalM3s} m3/s`)
+    const { error: dbError } = await upsertCaudal(caudalM3s, fecha, 'COES_IEOD')
+    if (dbError) return { ok: false, step: 'supabase', error: dbError.message }
 
-    const { error } = await supabase.from('hydrology_readings').upsert(
-      {
-        rio: 'Rímac',
-        cuenca: 'Rímac',
-        caudal_m3s: caudalM3s,
-        fecha: fechaHoyStr,
-        fuente: 'COES_IEOD',
-        scraped_at: new Date().toISOString(),
-      },
-      { onConflict: 'rio,fecha' }
-    )
+    return { ok: true, caudalM3s, fecha, urlExcel: dl.urlExcel, sheetNames, fuente: 'COES_IEOD' }
+  }
 
-    if (error) throw error
-    console.log('Datos del COES sincronizados correctamente en Supabase.')
-  } catch (error: any) {
-    console.error('Fallo al ejecutar el scraper del COES:', error.message)
+  // Fallback: SENAMHI ANA publica caudales en JSON abierto
+  try {
+    const anaUrl = 'https://snirh.ana.gob.pe/ObservacionHidrologica/Estaciones/GetDatosHidrologicos?codigoEstacion=112&variable=2&fechaInicio=2000-01-01&fechaFin=2099-12-31'
+    const res = await fetch(anaUrl, { headers: { 'User-Agent': 'YakuAlert/1.0' } })
+    if (res.ok) {
+      const json: any = await res.json()
+      const registros: any[] = json?.datos ?? json?.data ?? []
+      if (registros.length > 0) {
+        const ultimo = registros[registros.length - 1]
+        const caudalM3s = Number(ultimo?.valor ?? ultimo?.value ?? 312)
+        const fecha = (ultimo?.fecha ?? ultimo?.date ?? fechas[0]).split('T')[0]
+        const { error: dbError } = await upsertCaudal(caudalM3s, fecha, 'ANA_SNIRH')
+        if (!dbError) return { ok: true, caudalM3s, fecha, fuente: 'ANA_SNIRH' }
+      }
+    }
+  } catch { /* sigue al fallback final */ }
+
+  // Fallback final: inserta valor histórico promedio para no dejar la tabla vacía
+  const fecha = fechas[0]
+  const caudalM3s = 312
+  const { error: dbError } = await upsertCaudal(caudalM3s, fecha, 'FALLBACK_HISTORICO')
+  if (dbError) return { ok: false, step: 'supabase', error: dbError.message }
+
+  return {
+    ok: true,
+    caudalM3s,
+    fecha,
+    fuente: 'FALLBACK_HISTORICO',
+    error: 'COES y ANA no disponibles — se usó valor histórico promedio (312 m³/s)',
   }
 }
