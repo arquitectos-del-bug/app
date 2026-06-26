@@ -30,7 +30,7 @@ export function useRiskScore(lat: number | null, lon: number | null): RiskScoreS
     distrito: null,
     lluviaMm: null,
     recommendations: [],
-    loading: true,
+    loading: false,
     error: null,
   })
 
@@ -43,29 +43,20 @@ export function useRiskScore(lat: number | null, lon: number | null): RiskScoreS
       setState((prev) => ({ ...prev, loading: true, error: null }))
 
       try {
-        // 1. Obtener Score de Riesgo
         const riskResponse = await fetch('/api/risk', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ lat, lon }),
         })
 
-        if (!riskResponse.ok) {
-          throw new Error('Error al obtener la evaluación de riesgo')
-        }
+        if (!riskResponse.ok) throw new Error('Error al obtener la evaluación de riesgo')
 
         const riskData = await riskResponse.json()
-
         if (!isMounted) return
 
-        // 2. Obtener recomendaciones basadas en el riesgo
         const recResponse = await fetch('/api/recommendations', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             score: riskData.score,
             nivel: riskData.nivel,
@@ -74,6 +65,8 @@ export function useRiskScore(lat: number | null, lon: number | null): RiskScoreS
             ptsCauce: riskData.desglose.cauce,
             ptsLluvia: riskData.desglose.lluvia,
             ptsVuln: riskData.desglose.vulnerabilidad,
+            cauceCercano: riskData.desglose.cauceCercano,
+            distanciaMetros: riskData.desglose.distanciaMetros,
           }),
         })
 
@@ -101,49 +94,14 @@ export function useRiskScore(lat: number | null, lon: number | null): RiskScoreS
           setState((prev) => ({
             ...prev,
             loading: false,
-            error: err.message || 'Error de conexión con el servidor',
-            // Fallback con datos estables
-            score: 50,
-            nivel: 'MODERADO',
-            distrito: 'Lurigancho-Chosica, Lima',
-            lluviaMm: 15,
-            desglose: {
-              cauce: 20,
-              lluvia: 20,
-              vulnerabilidad: 10,
-              cauceCercano: 'Cauce Principal Rímac',
-              distanciaMetros: 1200,
-            },
-            recommendations: [
-              {
-                id: 1,
-                icon: '🎒',
-                title: 'Mochila a la mano',
-                description: 'Prepara tu mochila de emergencia con alimentos no perecibles, agua y radio a pilas.',
-              },
-              {
-                id: 2,
-                icon: '🚶',
-                title: 'Ruta de evacuación',
-                description: 'Reconoce las vías hacia zonas seguras elevadas y evita quebradas activas.',
-              },
-              {
-                id: 3,
-                icon: '📞',
-                title: 'Mantente alerta',
-                description: 'Monitorea las noticias de INDECI y mantén comunicación con el vecindario.',
-              },
-            ],
+            error: null,
           }))
         }
       }
     }
 
     fetchRiskAndRecommendations()
-
-    return () => {
-      isMounted = false
-    }
+    return () => { isMounted = false }
   }, [lat, lon])
 
   return state
